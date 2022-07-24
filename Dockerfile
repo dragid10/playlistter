@@ -12,7 +12,7 @@ ENV POETRY_NO_INTERACTION=1
 # OS Update / Upgrade packages
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y curl gcc \
+    && apt-get install -y curl \
     && apt-get autoremove -y \
     && apt-get clean \
     && curl -sSL https://install.python-poetry.org | python3 - --preview
