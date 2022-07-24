@@ -120,7 +120,7 @@ def new_day_tasks():
 
 
 def get_my_last_tweet() -> Status:
-    """Return last tweet from logged in user"""
+    """Return last tweet from logged-in user"""
     return twitter.user_timeline(count=1, exclude_replies=True, include_rts=False) or None
 
 
@@ -134,7 +134,7 @@ def clear_user_reply_map() -> bool:
         return False
 
 
-def start_new_stream(last_tweet: str):
+def start_new_stream(last_tweet: Status):
     # Need to subclass tweepy.StreamingClient to be able to customize stream funtionalities
     streaming_client = TwitterReplyWatcher(TWITTER_BEARER_TOKEN, last_tweet)
 
@@ -167,7 +167,7 @@ def lookup_songs(comment: str) -> str:
     artist = song_proposal[1].strip()
 
     # Lookup song with Spotify API and get the Spotify ID
-    song_queries = spotify.search(q=song_proposal, )
+    song_queries = spotify.search(q=song_proposal, limit=50)
     song_queries = song_queries.get("tracks", {}).get("items", [])
 
     # Naively match the song and artist to the first result
@@ -183,11 +183,11 @@ def lookup_songs(comment: str) -> str:
     #
     # # Do a fuzzy match to find the best match amongst results
     # best_match = process.extractOne(artist["name"], artist_list, scorer=fuzz.token_set_ratio)
-    # for track in song_queries["tracks"]["items"]:
-    #     for artist in track["artists"]:
-    #         if artist["name"] == best_match[0]:
-    #             song_details = track
-    #             break
+    for track in song_queries["tracks"]["items"]:
+        for artist in track["artists"]:
+            if artist["name"].casefold() == song_details["artists"][0]["name"].casefold():
+                song_details = track
+                break
 
     logger.debug(f"Found song: {song_details['name']} - {song_details['artists'][0]['name']}")
     return song_details["uri"]
@@ -205,7 +205,7 @@ def add_song_to_playlist(song: str) -> bool:
     return ret
 
 
-def populate_user_replies_map(last_tweet):
+def populate_user_replies_map(last_tweet: Status):
     global USER_REPLIES
 
     # Since there is no way to directly grab the replies to a tweet, we need to use the search API
