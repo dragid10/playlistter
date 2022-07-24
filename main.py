@@ -236,6 +236,6 @@ if __name__ == '__main__':
 
     # cron daily at 2am EST
     logger.info("Starting scheduler")
-    # scheduler.add_job(new_day_tasks, trigger="cron", hour=3, minute=0, second=0, timezone=eastern)
-    scheduler.add_job(new_day_tasks, timezone=eastern)
+    scheduler.add_job(new_day_tasks, trigger="cron", hour=3, minute=0, second=0, timezone=eastern)
+    # scheduler.add_job(new_day_tasks, timezone=eastern)
     scheduler.start()
