@@ -1,4 +1,4 @@
-FROM python:3.10.5 as base
+FROM python:3.10.5-slim as base
 
 # Python env flags
 ENV PYTHONDONTWRITEBYTECODE=1
