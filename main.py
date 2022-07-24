@@ -52,7 +52,11 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
 
                 # Verify song was added to playlist and reply to user if it wasn't
                 if added_to_playlist:
+                    logger.debug(f"Added song {song_uri} to playlist")
                     USER_REPLIES[reply.author_id] = song_proposal
+                    twitter.update_status(status="I've added your song to the playlist!",
+                                          in_reply_to_status_id=reply.id,
+                                          auto_populate_reply_metadata=True)
                 else:  # Tell user that the song is already in the playlist
                     twitter.update_status(status="This song is already in the playlist! Feel free to choose a different one 🙂",
                                           in_reply_to_status_id=reply.id,
