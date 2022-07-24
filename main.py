@@ -1,10 +1,14 @@
+import datetime
+import logging
 import sys
-from datetime import datetime
+import urllib.parse
 
 import tweepy
+from apscheduler.jobstores.mongodb import MongoDBJobStore
 from apscheduler.schedulers.blocking import BlockingScheduler
 from decouple import config
 from loguru import logger
+from pymongo import MongoClient
 from pytz import timezone
 from spotipy import Spotify, SpotifyOAuth
 from tweepy import Tweet
@@ -24,18 +28,20 @@ SPOTIFY_CLIENT_ID = config("spotify_client_id")
 SPOTIFY_CLIENT_SECRET = config("spotify_client_secret")
 SPOTIFY_PLAYLIST_ID = config("spotify_playlist_id")
 
-# Tweet object return fields
-TWEET_FIELDS = ["id", "author_id", "conversation_id", "created_at", "in_reply_to_user_id", ]
-# TWEET_FIELDS = ["id,author_id,conversation_id,created_at,in_reply_to_user_id"]
+# Mongo Configs
+MONGO_HOST = config("mongo_host")
+MONGO_PORT = config("mongo_port")
+MONGO_USER = config("mongo_user")
+MONGO_PASSWORD = config("mongo_password")
 
-log_format = "<lvl> {level} - {message}</lvl>"
 logger.remove()  # Remove default logger to avoid dupe logs
-logger.add(sys.stderr, format=log_format, level="DEBUG", colorize=True, backtrace=True, diagnose=True)
+logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", colorize=True, backtrace=True, diagnose=True)
 
 
 class TwitterReplyWatcher(tweepy.StreamingClient):
     def __init__(self, bearer_token: str, last_tweet: Status):
-        super().__init__(bearer_token)
+        super().__init__(bearer_token, wait_on_rate_limit=True, )
         self.last_tweet: Status = last_tweet
 
     def on_tweet(self, reply: Tweet):
@@ -104,7 +110,7 @@ def new_day_tasks():
     last_tweet: Status = get_my_last_tweet()
 
     # If I've not already tweeted today then clear reply map and prompt for songs
-    if not last_tweet or (last_tweet[0].created_at.astimezone(eastern).date() != datetime.now().astimezone(eastern).date()):
+    if not last_tweet or (last_tweet[0].created_at.astimezone(eastern).date() != datetime.datetime.now().astimezone(eastern).date()):
         clear_user_reply_map()
         daily_prompt_for_songs()
 
@@ -225,6 +231,12 @@ def is_direct_reply(tweet: Tweet) -> bool:
     return tweet.author_id != twitter.verify_credentials().id and tweet.text.count("@") == 1
 
 
+def mongo_login():
+    connect_str = f"mongodb+srv://{urllib.parse.quote(MONGO_USER)}:{urllib.parse.quote(MONGO_PASSWORD)}@{MONGO_HOST}".strip()
+    client = MongoClient(connect_str)
+    return client
+
+
 if __name__ == '__main__':
     # Log into Twitter
     twitter = twitter_login()
@@ -235,11 +247,21 @@ if __name__ == '__main__':
     spotify = spotify_login()
     logger.debug(f"Logged into Spotify")
 
+    # Create mongo client
+    mongo = mongo_login()
+
     # Create Scheduler job
-    scheduler = BlockingScheduler(timezone=eastern)
+    scheduler = BlockingScheduler(timezone=eastern,
+                                  jobstores={'mongo': MongoDBJobStore(client=mongo)},
+                                  job_defaults={'misfire_grace_time': None, 'coalesce': True})
 
     # cron daily at 2am EST
     logger.info("Starting scheduler")
-    scheduler.add_job(new_day_tasks, trigger="cron", hour=3, minute=0, second=0, timezone=eastern)
-    # scheduler.add_job(new_day_tasks, timezone=eastern)
+    scheduler.add_job(new_day_tasks,
+                      id="playlistter",
+                      trigger="cron", hour=3, minute=0, second=0, timezone=eastern,
+                      replace_existing=True,
+                      max_instances=1,
+                      next_run_time=datetime.datetime.now())
+
     scheduler.start()
