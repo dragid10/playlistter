@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "twitterplaylist"
+version = "0.1.0"
+description = "A Twitter bot that creates a Spotify playlist based on a daily twitter thread"
+authors = ["Alex Oladele <dragid10@gmail.com>"]
+license = "mit"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+loguru = "^0.6.0"
+python-decouple = "^3.6"
+python-dotenv = "^0.20.0"
+tweepy = "^4.10.0"
+spotipy = "^2.20.0"
+APScheduler = "^3.9.1"
+fuzzywuzzy = "^0.18.0"
+python-Levenshtein = "^0.12.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.1.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
