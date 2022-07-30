@@ -1,11 +1,11 @@
 import datetime
-import logging
 import sys
 import urllib.parse
 
 import tweepy
 from apscheduler.jobstores.mongodb import MongoDBJobStore
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from decouple import config
 from loguru import logger
 from pymongo import MongoClient
@@ -36,9 +36,11 @@ MONGO_PASSWORD = config("mongo_password")
 
 logger.remove()  # Remove default logger to avoid dupe logs
 logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", colorize=True, backtrace=True, diagnose=True, catch=True)
-logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", filter="apscheduler", level="DEBUG", colorize=True, backtrace=True, diagnose=True, catch=True)
+logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", filter="apscheduler", level="DEBUG", colorize=True, backtrace=True,
+           diagnose=True, catch=True)
 
 streaming_client = None
+
 
 class TwitterReplyWatcher(tweepy.StreamingClient):
     def __init__(self, bearer_token: str, last_tweet: Status):
@@ -48,11 +50,11 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
     def on_connect(self):
         logger.debug("Sucessfully connected to Twitter Stream")
         return super().on_connect()
-    
+
     def on_errors(self, errors):
         logger.error(f"Error from Twitter Stream: {errors}")
         return super().on_errors(errors)
-    
+
     def on_tweet(self, reply: Tweet):
         logger.debug(f"Received reply from Twitter: {reply}")
         # Only reply to direct replies (aka have a single `@` in the tweet)
@@ -93,7 +95,7 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
     def on_closed(self, response):
         logger.debug(f"Stream closed by Twitter with response {response}")
         self.disconnect()
-    
+
     def on_connection_error(self):
         logger.debug("Connection error from Twitter Stream")
         self.disconnect()
@@ -142,7 +144,6 @@ def kill_current_stream():
         streaming_client.disconnect()
         streaming_client = None
         logger.info("Killed current stream")
-
 
 
 def new_day_tasks():
@@ -301,13 +302,14 @@ if __name__ == '__main__':
                                   jobstores={'mongo': MongoDBJobStore(client=mongo)},
                                   job_defaults={'misfire_grace_time': None, 'coalesce': True})
 
-    # cron daily at 2am EST
+    # cron daily at 03:30am ET
     logger.info("Starting scheduler")
     scheduler.add_job(new_day_tasks,
                       id="playlistter",
-                      trigger="cron", hour=3, minute=0, second=0, timezone=eastern,
+                      name="playlistter",
+                      trigger=CronTrigger.from_crontab("30 3 * * *"),
                       replace_existing=True,
-                      max_instances=1,
-                      next_run_time=datetime.datetime.now())
+                      max_instances=2,
+                      next_run_time=datetime.datetime.now() + datetime.timedelta(minutes=3))
 
     scheduler.start()
