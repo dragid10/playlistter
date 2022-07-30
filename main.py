@@ -2,6 +2,7 @@ import datetime
 import sys
 import urllib.parse
 
+import pytz
 import tweepy
 from apscheduler.jobstores.mongodb import MongoDBJobStore
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -39,8 +40,6 @@ logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", 
 logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", filter="apscheduler", level="DEBUG", colorize=True, backtrace=True,
            diagnose=True, catch=True)
 
-streaming_client = None
-
 
 class TwitterReplyWatcher(tweepy.StreamingClient):
     def __init__(self, bearer_token: str, last_tweet: Status):
@@ -48,7 +47,7 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
         self.last_tweet: Status = last_tweet
 
     def on_connect(self):
-        logger.debug("Sucessfully connected to Twitter Stream")
+        logger.debug("Successfully connected to Twitter Stream")
         return super().on_connect()
 
     def on_errors(self, errors):
@@ -101,7 +100,7 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
         self.disconnect()
 
     def on_keep_alive(self):
-        logger.debug("Keep alive signal from Twitter Stream")
+        logger.debug(f"Keep alive signal from Twitter Stream at {datetime.datetime.now(tz=pytz.timezone('US/Eastern'))}")
         return super().on_keep_alive()
 
     def on_data(self, raw_data):
@@ -112,10 +111,12 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
         logger.debug(f"Matching rules from Twitter Stream: {matching_rules}")
         return super().on_matching_rules(matching_rules)
 
-    def disconnect():
+    def disconnect(self):
         logger.info("Manual disconnection invoked on stream")
         return super().disconnect()
 
+
+streaming_client: TwitterReplyWatcher = None
 
 # Temporary In-memory map to keep track of user replies
 # Will get cleared each new day
@@ -140,7 +141,7 @@ def spotify_login():
 
 def kill_current_stream():
     global streaming_client
-    if streaming_client:
+    if streaming_client is not None:
         streaming_client.disconnect()
         streaming_client = None
         logger.info("Killed current stream")
@@ -189,19 +190,19 @@ def clear_user_reply_map() -> bool:
 
 def start_new_stream(last_tweet: Status):
     global streaming_client
-    # Need to subclass tweepy.StreamingClient to be able to customize stream funtionalities
+    # Need to subclass tweepy.StreamingClient to be able to customize stream functionalities
     streaming_client = TwitterReplyWatcher(TWITTER_BEARER_TOKEN, last_tweet)
 
     # technically `in_reply_to_status_id` is not listed in the documentation officially, but it exists
     # https://developer.twitter.com/en/blog/product-news/2022/twitter-api-v2-filtered-stream
     # https://docs.tweepy.org/en/stable/streamingclient.html#streamingclient
-    logger.debug("Adding rules to stream")
-    streaming_client.add_rules(tweepy.StreamRule(f"in_reply_to_status_id:{last_tweet}"))
+    logger.debug(f"Watching last tweet {last_tweet.id_str}")
+    streaming_client.add_rules(tweepy.StreamRule(f"in_reply_to_status_id:{last_tweet.id_str}"))
 
     # Ensure we get these fields in the response
-    # streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
     logger.debug("Calling Stream `filter` function now")
-    streaming_client.filter()
+    streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
+    # streaming_client.filter()
 
 
 def daily_prompt_for_songs():
@@ -220,8 +221,9 @@ Playlist Link: https://open.spotify.com/playlist/7sMcyP8zJ8Fr1WkZ27XL7Y?si=6213f
 def lookup_songs(comment: str) -> str:
     # Split song proposal into song and artist
     song_proposal = comment.split("-")
-    song = song_proposal[0].strip()
-    artist = song_proposal[1].strip()
+    # TODO (7/30/22) [dragid10]: CCleanup
+    # song = song_proposal[0].strip()
+    # artist = song_proposal[1].strip()
 
     # Lookup song with Spotify API and get the Spotify ID
     song_queries = spotify.search(q=song_proposal, limit=50)
@@ -240,7 +242,7 @@ def lookup_songs(comment: str) -> str:
     #
     # # Do a fuzzy match to find the best match amongst results
     # best_match = process.extractOne(artist["name"], artist_list, scorer=fuzz.token_set_ratio)
-    for track in song_queries["tracks"]["items"]:
+    for track in song_queries:
         for artist in track["artists"]:
             if artist["name"].casefold() == song_details["artists"][0]["name"].casefold():
                 song_details = track
@@ -307,9 +309,10 @@ if __name__ == '__main__':
     scheduler.add_job(new_day_tasks,
                       id="playlistter",
                       name="playlistter",
-                      trigger=CronTrigger.from_crontab("30 3 * * *"),
                       replace_existing=True,
-                      max_instances=2,
-                      next_run_time=datetime.datetime.now() + datetime.timedelta(minutes=3))
+                      # max_instances=1,
+                      trigger=CronTrigger.from_crontab("30 3 * * *", timezone=pytz.timezone('US/Eastern')),
+                      next_run_time=datetime.datetime.now(tz=pytz.timezone('US/Eastern')) + datetime.timedelta(minutes=2)
+                      )
 
     scheduler.start()
