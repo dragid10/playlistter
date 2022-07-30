@@ -35,17 +35,26 @@ MONGO_USER = config("mongo_user")
 MONGO_PASSWORD = config("mongo_password")
 
 logger.remove()  # Remove default logger to avoid dupe logs
-logging.getLogger('apscheduler').setLevel(logging.DEBUG)
-logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", colorize=True, backtrace=True, diagnose=True)
+logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", colorize=True, backtrace=True, diagnose=True, catch=True)
+logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", filter="apscheduler", level="DEBUG", colorize=True, backtrace=True, diagnose=True, catch=True)
 
 streaming_client = None
 
 class TwitterReplyWatcher(tweepy.StreamingClient):
     def __init__(self, bearer_token: str, last_tweet: Status):
-        super().__init__(bearer_token, wait_on_rate_limit=True, )
+        super().__init__(bearer_token, wait_on_rate_limit=True, max_retries=25)
         self.last_tweet: Status = last_tweet
 
+    def on_connect(self):
+        logger.debug("Sucessfully connected to Twitter Stream")
+        return super().on_connect()
+    
+    def on_errors(self, errors):
+        logger.error(f"Error from Twitter Stream: {errors}")
+        return super().on_errors(errors)
+    
     def on_tweet(self, reply: Tweet):
+        logger.debug(f"Received reply from Twitter: {reply}")
         # Only reply to direct replies (aka have a single `@` in the tweet)
         if is_direct_reply(reply):
             # Ensure this user hasn't already suggested a song for today
@@ -83,13 +92,24 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
 
     def on_closed(self, response):
         logger.debug(f"Stream closed by Twitter with response {response}")
-        return super().on_closed(response)
+        self.disconnect()
     
     def on_connection_error(self):
         logger.debug("Connection error from Twitter Stream")
-        return super().on_connection_error()
+        self.disconnect()
 
-    @staticmethod
+    def on_keep_alive(self):
+        logger.debug("Keep alive signal from Twitter Stream")
+        return super().on_keep_alive()
+
+    def on_data(self, raw_data):
+        logger.debug(f"Received raw data from Twitter: {raw_data}")
+        return super().on_data(raw_data)
+
+    def on_matching_rules(self, matching_rules):
+        logger.debug(f"Matching rules from Twitter Stream: {matching_rules}")
+        return super().on_matching_rules(matching_rules)
+
     def disconnect():
         logger.info("Manual disconnection invoked on stream")
         return super().disconnect()
@@ -174,10 +194,13 @@ def start_new_stream(last_tweet: Status):
     # technically `in_reply_to_status_id` is not listed in the documentation officially, but it exists
     # https://developer.twitter.com/en/blog/product-news/2022/twitter-api-v2-filtered-stream
     # https://docs.tweepy.org/en/stable/streamingclient.html#streamingclient
+    logger.debug("Adding rules to stream")
     streaming_client.add_rules(tweepy.StreamRule(f"in_reply_to_status_id:{last_tweet}"))
 
     # Ensure we get these fields in the response
-    streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
+    # streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
+    logger.debug("Calling Stream `filter` function now")
+    streaming_client.filter()
 
 
 def daily_prompt_for_songs():
