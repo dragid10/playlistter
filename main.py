@@ -38,6 +38,7 @@ logger.remove()  # Remove default logger to avoid dupe logs
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>", level="DEBUG", colorize=True, backtrace=True, diagnose=True)
 
+streaming_client = None
 
 class TwitterReplyWatcher(tweepy.StreamingClient):
     def __init__(self, bearer_token: str, last_tweet: Status):
@@ -76,6 +77,23 @@ class TwitterReplyWatcher(tweepy.StreamingClient):
         else:  # Not a direct reply
             logger.debug(f"Captured tweet was not a direct reply")
 
+    def on_disconnect(self):
+        logger.debug("Disconnected from Twitter Stream")
+        return super().on_disconnect()
+
+    def on_closed(self, response):
+        logger.debug(f"Stream closed by Twitter with response {response}")
+        return super().on_closed(response)
+    
+    def on_connection_error(self):
+        logger.debug("Connection error from Twitter Stream")
+        return super().on_connection_error()
+
+    @staticmethod
+    def disconnect():
+        logger.info("Manual disconnection invoked on stream")
+        return super().disconnect()
+
 
 # Temporary In-memory map to keep track of user replies
 # Will get cleared each new day
@@ -99,8 +117,12 @@ def spotify_login():
 
 
 def kill_current_stream():
-    # TODO
-    pass
+    global streaming_client
+    if streaming_client:
+        streaming_client.disconnect()
+        streaming_client = None
+        logger.info("Killed current stream")
+
 
 
 def new_day_tasks():
@@ -145,6 +167,7 @@ def clear_user_reply_map() -> bool:
 
 
 def start_new_stream(last_tweet: Status):
+    global streaming_client
     # Need to subclass tweepy.StreamingClient to be able to customize stream funtionalities
     streaming_client = TwitterReplyWatcher(TWITTER_BEARER_TOKEN, last_tweet)
 
