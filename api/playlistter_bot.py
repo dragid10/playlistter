@@ -1,4 +1,5 @@
 import sys
+from typing import List
 
 import tweepy
 from loguru import logger
@@ -18,6 +19,7 @@ logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>",
 
 
 class PlaylistterBot:
+
     def __init__(self,
                  twitter_api_key: str,
                  twitter_api_secret: str,
@@ -34,7 +36,8 @@ class PlaylistterBot:
         self.twitter_token_secret = twitter_token_secret
         self.twitter_bearer_token = twitter_bearer_token
         self.twitter_client = self.twitter_login()
-        self.streaming_client = None
+        self.last_tweet = self.get_last_tweet()
+        self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
         logger.info("Twitter login successful")
 
         # Spotify
@@ -62,9 +65,18 @@ class PlaylistterBot:
         """Used to both get the logged-in user object and validate the credentials"""
         return self.twitter_client.verify_credentials()
 
-    def get_last_tweet(self) -> Status:
+    def get_last_tweet(self) -> List[Status]:
         """Return last tweet from logged-in user"""
         return self.twitter_client.user_timeline(count=1, exclude_replies=True, include_rts=False) or None
+
+    def get_previous_replies_to_tweet(self) -> List[Status]:
+        replies = []
+        # Since there is no way to directly grab the replies to a tweet, we need to use the search API
+        bot_user = self.get_logged_in_twitter_user().screen_name
+        for tweet in tweepy.Cursor(self.twitter_client.search_tweets, q=f"to:{bot_user}", result_type="recent").items(500):
+            if hasattr(tweet, "in_reply_to_status_id_str") and tweet.in_reply_to_status_id_str == self.last_tweet[0].id_str:
+                replies.append(tweet)
+        return replies
 
     @staticmethod
     def register_tweet_reply(tweet: Status):
@@ -86,10 +98,8 @@ class PlaylistterBot:
     def is_direct_reply(self, tweet: Tweet) -> bool:
         return tweet.author_id != self.get_logged_in_twitter_user().id and tweet.text.count("@") == 1
 
-    def start_new_stream(self, streaming_client, last_tweet: Status):
+    def start_new_stream(self, last_tweet: Status):
         # Need to subclass tweepy.StreamingClient to be able to customize stream functionalities
-        self.streaming_client = streaming_client
-
         # technically `in_reply_to_status_id` is not listed in the documentation officially, but it exists
         # https://developer.twitter.com/en/blog/product-news/2022/twitter-api-v2-filtered-stream
         # https://docs.tweepy.org/en/stable/streamingclient.html#streamingclient
@@ -148,3 +158,77 @@ class PlaylistterBot:
 
         logger.debug(f"Found song: {song_details['name']} - {song_details['artists'][0]['name']}")
         return song_details["uri"]
+
+    class TwitterReplyWatcher(tweepy.StreamingClient):
+        def __init__(self, playlistter_bot, last_tweet: Status):
+            self.playlistter = playlistter_bot
+            self.last_tweet: Status = last_tweet
+            self.is_direct_reply = self.playlistter.is_direct_reply
+            super().__init__(playlistter_bot.twitter_bearer_token, wait_on_rate_limit=True, max_retries=25)
+
+        def on_connect(self):
+            logger.debug("Successfully connected to Twitter Stream")
+            return super().on_connect()
+
+        def on_errors(self, errors):
+            logger.error(f"Error from Twitter Stream: {errors}")
+            return super().on_errors(errors)
+
+        def on_tweet(self, reply: Tweet):
+            logger.debug(f"Received reply from Twitter: {reply}")
+            # Only reply to direct replies (aka have a single `@` in the tweet)
+            if self.is_direct_reply(reply):
+                # Ensure this user hasn't already suggested a song for today
+                if reply.author_id not in helpers.USER_REPLIES:
+                    logger.debug(f"Found new reply to root tweet {self.last_tweet.id}: {reply.text}")
+                    song_proposal = reply.text.replace(f"@{self.last_tweet.author.screen_name}", "").strip()
+
+                    # lookup and add song to playlist
+                    song_uri = self.playlistter.lookup_songs(song_proposal)
+                    added_to_playlist = self.playlistter.add_song_to_playlist(song_uri)
+
+                    # Verify song was added to playlist and reply to user if it wasn't
+                    if added_to_playlist:
+                        logger.debug(f"Added song {song_uri} to playlist")
+                        helpers.USER_REPLIES[reply.author_id] = song_proposal
+                        self.playlistter.twitter_client.update_status(status="I've added your song to the playlist!",
+                                                                      in_reply_to_status_id=reply.id,
+                                                                      auto_populate_reply_metadata=True)
+                    else:  # Tell user that the song is already in the playlist
+                        self.playlistter.twitter_client.update_status(
+                            status="This song is already in the playlist! Feel free to choose a different one 🙂",
+                            in_reply_to_status_id=reply.id,
+                            auto_populate_reply_metadata=True)
+                        logger.debug(f"Song {song_proposal} is already in the playlist, informed requesting user")
+                else:  # User has already suggested a song for today
+                    logger.debug(f"Found duplicate reply to root tweet {self.last_tweet.id_str}: {reply.text}")
+                    self.playlistter.twitter_client.update_status(
+                        status="Sorry but you've already submitted a song for today! Try again tomorrow",
+                        in_reply_to_status_id=reply.id,
+                        auto_populate_reply_metadata=True)
+            else:  # Not a direct reply
+                logger.debug(f"Captured tweet was not a direct reply")
+
+        def on_disconnect(self):
+            logger.debug("Disconnected from Twitter Stream")
+            return super().on_disconnect()
+
+        def on_closed(self, response):
+            logger.debug(f"Stream closed by Twitter with response {response}")
+            self.disconnect()
+
+        def on_connection_error(self):
+            logger.debug("Connection error from Twitter Stream")
+            self.disconnect()
+
+        def on_data(self, raw_data):
+            logger.debug(f"Received raw data from Twitter: {raw_data}")
+            return super().on_data(raw_data)
+
+        def on_matching_rules(self, matching_rules):
+            logger.debug(f"Matching rules from Twitter Stream: {matching_rules}")
+            return super().on_matching_rules(matching_rules)
+
+        def disconnect(self):
+            logger.info("Manual disconnection invoked on stream")
+            return super().disconnect()

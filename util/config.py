@@ -1,4 +1,7 @@
 # Twitter configs
+from dotenv import load_dotenv
+
+load_dotenv()
 from decouple import config
 
 TWITTER_API_KEY = config("twitter_api_key")
