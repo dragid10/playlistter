@@ -15,6 +15,7 @@ tweepy = "^4.10.0"  # https://pypi.org/project/tweepy/
 spotipy = "^2.20.0"  # https://pypi.org/project/spotipy/
 APScheduler = "^3.9.1"  # https://pypi.org/project/APScheduler/
 pymongo = {extras = ["srv"], version = "^4.2.0"}
+spotify-token = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.2"  # https://pypi.org/project/pytest/
