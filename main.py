@@ -34,6 +34,7 @@ def new_day_tasks():
     # Get last tweet again in case we didn't have one before (kinda wasteful tbh)
     last_tweet: Status = playlistter.get_last_tweet()[0]
 
+    # If script is restarting, then grab previous replies to daily tweet to popular user map
     previous_replies: List[Status] = playlistter.get_previous_replies_to_tweet()
 
     # Populate the reply map with all replies to the last tweet
@@ -51,12 +52,14 @@ def new_day_tasks():
 
 def scheduler_callback(event):
     logger.debug(f"""Scheduler callback triggered: {event}""")
+
+    # Kill current twitter stream (if any) on new job event
     if event.job_id:
         playlistter.kill_stream()
 
 
 if __name__ == '__main__':
-    # Log into Twitter
+    # Create PlaylistterBot instance to handle both the Twitter and Spotify APIs
     playlistter = PlaylistterBot(twitter_api_key=config.TWITTER_API_KEY,
                                  twitter_api_secret=config.TWITTER_API_SECRET,
                                  twitter_token=config.TWITTER_TOKEN,
@@ -82,10 +85,10 @@ if __name__ == '__main__':
                       name="playlistter",
                       replace_existing=True,
                       trigger=CronTrigger.from_crontab("30 3 * * *", timezone=helpers.EASTERN_TZ),
-                      # trigger=CronTrigger.from_crontab("*/3 * * * *", timezone=helpers.EASTERN_TZ),
                       next_run_time=datetime.datetime.now(tz=helpers.EASTERN_TZ) + datetime.timedelta(minutes=1)
                       )
 
+    # Add callback to scheduler to kill twitter stream on new runs
     scheduler.add_listener(scheduler_callback, EVENT_JOB_SUBMITTED | EVENT_JOB_ADDED)
 
     scheduler.start()

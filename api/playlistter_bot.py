@@ -30,7 +30,7 @@ class PlaylistterBot:
                  spotify_client_secret: str,
                  spotify_perma_token: str,
                  spotify_playlist_id: str):
-        # Twitter
+        # ------ TWITTER Vars ------
         logger.debug("Setting up twitter client")
         self.twitter_api_key = twitter_api_key
         self.twitter_api_secret = twitter_api_secret
@@ -44,7 +44,7 @@ class PlaylistterBot:
         logger.debug(f"Logged in twitter user: {self.get_logged_in_twitter_user().screen_name}")
         logger.info("Twitter login successful")
 
-        # Spotify
+        # ------ SPOTIFY Vars ------
         logger.debug("Setting up spotify client")
         self.spotify_client_id = spotify_client_id
         self.spotify_client_secret = spotify_client_secret
@@ -64,18 +64,7 @@ class PlaylistterBot:
         return tweepy.API(auth)
 
     def spotify_login(self) -> Spotify:
-        scope = "playlist-modify-public"
-        logger.debug("Creating Spotify OAuth object")
-        # auth_manager = SpotifyOAuth(client_id=self.spotify_client_id,
-        #                             client_secret=self.spotify_client_secret,
-        #                             scope=scope,
-        #                             redirect_uri="http://localhost:8888/callback",
-        #                             open_browser=False
-        #                             )
-        logger.debug("Created oAuth object, attempting login")
-        # sp_client = Spotify(auth_manager=auth_manager, requests_timeout=15, retries=5, status_retries=7, backoff_factor=0.3)
         sp_client = Spotify(auth=self.spotify_perma_token, requests_timeout=15, retries=5, status_retries=7, backoff_factor=0.3)
-        logger.debug("Spotify Login object created!")
         return sp_client
 
     # TWITTER METHODS
@@ -96,10 +85,10 @@ class PlaylistterBot:
                 replies.append(tweet)
         return replies
 
-    @staticmethod
-    def register_tweet_reply(tweet: Status):
-        logger.debug(f"Registering reply {tweet.id_str}")
-        helpers.USER_REPLIES[tweet.au] = tweet.id_str
+    # @staticmethod
+    # def register_tweet_reply(tweet: Status):
+    #     logger.debug(f"Registering reply {tweet.id_str}")
+    #     helpers.USER_REPLIES[tweet.author_id] = tweet.id_str
 
     def daily_prompt_for_songs(self):
         """Invites everyone to submit a song for the day"""
@@ -117,15 +106,16 @@ class PlaylistterBot:
         return tweet.author_id != self.get_logged_in_twitter_user().id and tweet.text.count("@") == 1
 
     def start_new_stream(self, last_tweet: Status):
+        logger.debug(f"will watch last tweet: {last_tweet.id_str}")
+
         # Need to subclass tweepy.StreamingClient to be able to customize stream functionalities
         # technically `in_reply_to_status_id` is not listed in the documentation officially, but it exists
         # https://developer.twitter.com/en/blog/product-news/2022/twitter-api-v2-filtered-stream
         # https://docs.tweepy.org/en/stable/streamingclient.html#streamingclient
-        logger.debug(f"Watching last tweet {last_tweet.id_str}")
         self.streaming_client.add_rules(tweepy.StreamRule(f"in_reply_to_status_id:{last_tweet.id_str}"))
 
-        # Ensure we get these fields in the response
-        logger.debug("Calling Stream `filter` function now")
+        logger.debug("Starting stream")
+        # Ensure we get these fields in the response and start the stream
         self.streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
 
     def kill_stream(self):
@@ -138,22 +128,22 @@ class PlaylistterBot:
         return user
 
     def add_song_to_playlist(self, song: str) -> bool:
+        # Get playlist object
         playlist = self.spotify_client.playlist(self.spotify_playlist_id)
         playlist_songs = [uri["track"]["uri"] for uri in playlist["tracks"]["items"]]
+
+        # Only add song if it is not already in the playlist
         if song not in playlist_songs:
             ret = self.spotify_client.playlist_add_items(playlist_id=self.spotify_playlist_id, items=[song])
             logger.debug(f"Added new song to playlist")
         else:
-            logger.debug(f"Song already in playlist")
+            logger.debug(f"Song is already found in playlist")
             ret = False
         return ret
 
     def lookup_songs(self, comment: str) -> str:
         # Split song proposal into song and artist
         song_proposal = comment.split("-")
-        # TODO (7/30/22) [dragid10]: CCleanup
-        # song = song_proposal[0].strip()
-        # artist = song_proposal[1].strip()
 
         # Lookup song with Spotify API and get the Spotify ID
         song_queries = self.spotify_client.search(q=song_proposal, type="track", limit=30)
@@ -162,16 +152,16 @@ class PlaylistterBot:
         # Naively match the song and artist to the first result
         song_details = song_queries[0]
 
-        """I disabled this block because the naive approach somehow yields better results. I think spotify already optimizes their search
-        results so I don't need to do it myself"""
-        # # Extract all artists from the search results
-        # artist_list = []
-        # for song in song_queries:
-        #     for artist in song["artists"]:
-        #         artist_list.append(artist["name"])
+        # I disabled this block because the naive approach somehow yields better results. I think spotify already optimizes their search
+        # results so I don't need to optimize it myself
+
+        # Extract all artists from the search results artist_list = [] for song in
+        #  song_queries: for artist in song["artists"]: artist_list.append(artist["name"])
         #
         # # Do a fuzzy match to find the best match amongst results
         # best_match = process.extractOne(artist["name"], artist_list, scorer=fuzz.token_set_ratio)
+
+        # Try to naively name-match the artist name provided to the track name
         for track in song_queries:
             for artist in track["artists"]:
                 if artist["name"].casefold() == song_details["artists"][0]["name"].casefold():
@@ -185,7 +175,7 @@ class PlaylistterBot:
         def __init__(self, playlistter_bot, last_tweet: Status):
             self.playlistter = playlistter_bot
             self.last_tweet: Status = last_tweet
-            self.is_direct_reply = self.playlistter.is_direct_reply
+            self.is_direct_reply = self.playlistter.is_direct_reply  # steal func from parent class
             super().__init__(playlistter_bot.twitter_bearer_token, wait_on_rate_limit=True, max_retries=25)
 
         def on_connect(self):
@@ -198,8 +188,8 @@ class PlaylistterBot:
 
         def on_tweet(self, reply: Tweet):
             logger.debug(f"Received reply from Twitter: {reply}")
-            # Only reply to direct replies (aka have a single `@` in the tweet)
-            if self.is_direct_reply(reply):
+
+            if self.is_direct_reply(reply):  # Only reply to direct replies (aka have a single `@` in the tweet)
                 logger.debug(f"Direct reply detected")
                 # Ensure this user hasn't already suggested a song for today
                 if reply.author_id not in helpers.USER_REPLIES:
@@ -235,7 +225,7 @@ class PlaylistterBot:
                 logger.debug(f"Captured tweet was not a direct reply")
 
         def on_disconnect(self):
-            logger.debug("Disconnected from Twitter Stream")
+            logger.debug("Forced disconnection from Twitter Stream")
             return super().on_disconnect()
 
         def on_closed(self, response):
@@ -245,14 +235,6 @@ class PlaylistterBot:
         def on_connection_error(self):
             logger.debug("Connection error from Twitter Stream")
             self.disconnect()
-
-        def on_data(self, raw_data):
-            logger.debug(f"Received raw data from Twitter: {raw_data}")
-            return super().on_data(raw_data)
-
-        def on_matching_rules(self, matching_rules):
-            logger.debug(f"Matching rules from Twitter Stream: {matching_rules}")
-            return super().on_matching_rules(matching_rules)
 
         def disconnect(self):
             logger.info("Manual disconnection invoked on stream")
