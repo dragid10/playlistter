@@ -37,7 +37,7 @@ class PlaylistterBot:
         self.twitter_bearer_token = twitter_bearer_token
         self.twitter_client = self.twitter_login()
         self.last_tweet = self.get_last_tweet()
-        self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
+        # self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
         logger.info("Twitter login successful")
 
         # Spotify
@@ -46,6 +46,8 @@ class PlaylistterBot:
         self.spotify_playlist_id = spotify_playlist_id
         self.spotify_client = self.spotify_login()
         logger.info("Spotify login successful")
+
+        self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
 
     def twitter_login(self) -> tweepy.API:
         auth: tweepy.OAuth1UserHandler = tweepy.OAuthHandler(consumer_key=self.twitter_api_key, consumer_secret=self.twitter_api_secret)
