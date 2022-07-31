@@ -64,7 +64,8 @@ if __name__ == '__main__':
                                  twitter_bearer_token=config.TWITTER_BEARER_TOKEN,
                                  spotify_client_id=config.SPOTIFY_CLIENT_ID,
                                  spotify_client_secret=config.SPOTIFY_CLIENT_SECRET,
-                                 spotify_playlist_id=config.SPOTIFY_PLAYLIST_ID)
+                                 spotify_playlist_id=config.SPOTIFY_PLAYLIST_ID,
+                                 spotify_perma_token=config.SPOTIFY_PERMA_TOKEN, )
 
     # Create mongo client
     mongo = mongo_client.login(username=config.MONGO_USER, password=config.MONGO_PASSWORD, hostname=config.MONGO_HOST)

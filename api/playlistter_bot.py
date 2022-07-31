@@ -3,7 +3,7 @@ from typing import List
 
 import tweepy
 from loguru import logger
-from spotipy import SpotifyOAuth, Spotify
+from spotipy import Spotify
 from tweepy import Tweet
 from tweepy.models import Status
 
@@ -28,22 +28,30 @@ class PlaylistterBot:
                  twitter_bearer_token: str,
                  spotify_client_id: str,
                  spotify_client_secret: str,
+                 spotify_perma_token: str,
                  spotify_playlist_id: str):
         # Twitter
+        logger.debug("Setting up twitter client")
         self.twitter_api_key = twitter_api_key
         self.twitter_api_secret = twitter_api_secret
         self.twitter_token = twitter_token
         self.twitter_token_secret = twitter_token_secret
         self.twitter_bearer_token = twitter_bearer_token
+
+        logger.debug("logging in to twitter")
         self.twitter_client = self.twitter_login()
         self.last_tweet = self.get_last_tweet()
         logger.debug(f"Logged in twitter user: {self.get_logged_in_twitter_user().screen_name}")
         logger.info("Twitter login successful")
 
         # Spotify
+        logger.debug("Setting up spotify client")
         self.spotify_client_id = spotify_client_id
         self.spotify_client_secret = spotify_client_secret
+        self.spotify_perma_token = spotify_perma_token
         self.spotify_playlist_id = spotify_playlist_id
+
+        logger.debug("Logging in to spotify")
         self.spotify_client = self.spotify_login()
         logger.debug(f"Logged in spotify user: {self.get_logged_in_spotify_user()['id']}")
         logger.info("Spotify login successful")
@@ -57,11 +65,18 @@ class PlaylistterBot:
 
     def spotify_login(self) -> Spotify:
         scope = "playlist-modify-public"
-        auth_manager = SpotifyOAuth(client_id=self.spotify_client_id,
-                                    client_secret=self.spotify_client_secret,
-                                    scope=scope,
-                                    redirect_uri="http://localhost:8888/callback")
-        return Spotify(auth_manager=auth_manager)
+        logger.debug("Creating Spotify OAuth object")
+        # auth_manager = SpotifyOAuth(client_id=self.spotify_client_id,
+        #                             client_secret=self.spotify_client_secret,
+        #                             scope=scope,
+        #                             redirect_uri="http://localhost:8888/callback",
+        #                             open_browser=False
+        #                             )
+        logger.debug("Created oAuth object, attempting login")
+        # sp_client = Spotify(auth_manager=auth_manager, requests_timeout=15, retries=5, status_retries=7, backoff_factor=0.3)
+        sp_client = Spotify(auth=self.spotify_perma_token, requests_timeout=15, retries=5, status_retries=7, backoff_factor=0.3)
+        logger.debug("Spotify Login object created!")
+        return sp_client
 
     # TWITTER METHODS
     def get_logged_in_twitter_user(self) -> tweepy.models.User:
@@ -119,7 +134,8 @@ class PlaylistterBot:
 
     # SPOTIFY METHODS
     def get_logged_in_spotify_user(self):
-        return self.spotify_client.me()
+        user = self.spotify_client.me()
+        return user
 
     def add_song_to_playlist(self, song: str) -> bool:
         playlist = self.spotify_client.playlist(self.spotify_playlist_id)
