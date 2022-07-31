@@ -1,4 +1,5 @@
 # Twitter configs
+import spotify_token
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +15,9 @@ TWITTER_BEARER_TOKEN = config("twitter_bearer_token")
 SPOTIFY_CLIENT_ID = config("spotify_client_id")
 SPOTIFY_CLIENT_SECRET = config("spotify_client_secret")
 SPOTIFY_PLAYLIST_ID = config("spotify_playlist_id")
+SPOTIFY_DC = config("spotify_dc")
+SPOTIFY_KEY = config("spotify_key")
+SPOTIFY_PERMA_TOKEN = spotify_token.start_session(dc=SPOTIFY_DC, key=SPOTIFY_KEY)[0]
 
 # Mongo Configs
 MONGO_HOST = config("mongo_host")
