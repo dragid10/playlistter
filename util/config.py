@@ -1,10 +1,9 @@
 # Twitter configs
 import spotify_token
+from decouple import config
 from dotenv import load_dotenv
 
 load_dotenv()
-from decouple import config
-
 TWITTER_API_KEY = config("twitter_api_key")
 TWITTER_API_SECRET = config("twitter_api_secret")
 TWITTER_TOKEN = config("twitter_token")

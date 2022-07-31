@@ -7,7 +7,6 @@ from tweepy.models import Status
 
 # Temporary In-memory map to keep track of user replies
 # Will get cleared each new day
-
 USER_REPLIES = {}
 EASTERN_TZ = pytz.timezone('US/Eastern')
 
@@ -18,10 +17,6 @@ logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>",
            backtrace=True,
            diagnose=True,
            catch=True)
-
-
-# def is_direct_reply(client: tweepy.API, tweet: Tweet) -> bool:
-#     return tweet.author_id != client.verify_credentials().id and tweet.text.count("@") == 1
 
 
 # noinspection PyBroadException
