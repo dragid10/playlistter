@@ -80,10 +80,9 @@ if __name__ == '__main__':
                       id="playlistter",
                       name="playlistter",
                       replace_existing=True,
-                      # max_instances=1,
                       trigger=CronTrigger.from_crontab("30 3 * * *", timezone=helpers.EASTERN_TZ),
-                      # trigger=CronTrigger.from_crontab("*/1 * * * *", timezone=helpers.EASTERN_TZ),
-                      next_run_time=datetime.datetime.now(tz=helpers.EASTERN_TZ) + datetime.timedelta(minutes=2)
+                      # trigger=CronTrigger.from_crontab("*/3 * * * *", timezone=helpers.EASTERN_TZ),
+                      next_run_time=datetime.datetime.now(tz=helpers.EASTERN_TZ) + datetime.timedelta(minutes=1)
                       )
 
     scheduler.add_listener(scheduler_callback, EVENT_JOB_SUBMITTED | EVENT_JOB_ADDED)
