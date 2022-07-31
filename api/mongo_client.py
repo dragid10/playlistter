@@ -17,5 +17,6 @@ logger.add(
 
 
 def login(username: str, password: str, hostname: str) -> MongoClient:
-    connect_str = f"mongodb+srv://{urllib.parse.quote(username)}:{urllib.parse.quote(password)}@{hostname}".strip()
+    connect_str = f"mongodb+srv://{urllib.parse.quote(username)}:{urllib.parse.quote(password)}@{hostname}".strip(
+    )
     return MongoClient(connect_str)
