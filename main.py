@@ -2,7 +2,8 @@ import datetime
 import sys
 from typing import List
 
-from apscheduler.events import EVENT_JOB_ADDED, EVENT_JOB_SUBMITTED
+from apscheduler.events import EVENT_JOB_ADDED
+from apscheduler.events import EVENT_JOB_SUBMITTED
 from apscheduler.jobstores.mongodb import MongoDBJobStore
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -11,7 +12,8 @@ from tweepy.models import Status
 
 from api import mongo_client
 from api.playlistter_bot import PlaylistterBot
-from util import config, helpers
+from util import config
+from util import helpers
 
 logger.remove()  # Remove default logger to avoid dupe logs
 logger.add(
