@@ -178,12 +178,14 @@ class PlaylistterBot:
             logger.debug(f"Received reply from Twitter: {reply}")
             # Only reply to direct replies (aka have a single `@` in the tweet)
             if self.is_direct_reply(reply):
+                logger.debug(f"Direct reply detected")
                 # Ensure this user hasn't already suggested a song for today
                 if reply.author_id not in helpers.USER_REPLIES:
                     logger.debug(f"Found new reply to root tweet {self.last_tweet.id}: {reply.text}")
                     song_proposal = reply.text.replace(f"@{self.last_tweet.author.screen_name}", "").strip()
 
                     # lookup and add song to playlist
+                    logger.debug(f"Looking up song: {song_proposal}")
                     song_uri = self.playlistter.lookup_songs(song_proposal)
                     added_to_playlist = self.playlistter.add_song_to_playlist(song_uri)
 
