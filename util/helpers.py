@@ -2,9 +2,7 @@ import sys
 from typing import List
 
 import pytz
-import tweepy
 from loguru import logger
-from tweepy import Tweet
 from tweepy.models import Status
 
 # from api.playlistter_bot import PlaylistterBot
@@ -23,8 +21,8 @@ logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>",
            catch=True)
 
 
-def is_direct_reply(client: tweepy.API, tweet: Tweet) -> bool:
-    return tweet.author_id != client.verify_credentials().id and tweet.text.count("@") == 1
+# def is_direct_reply(client: tweepy.API, tweet: Tweet) -> bool:
+#     return tweet.author_id != client.verify_credentials().id and tweet.text.count("@") == 1
 
 
 # noinspection PyBroadException
