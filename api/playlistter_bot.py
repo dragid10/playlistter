@@ -136,7 +136,7 @@ class PlaylistterBot:
         # artist = song_proposal[1].strip()
 
         # Lookup song with Spotify API and get the Spotify ID
-        song_queries = self.spotify_client.search(q=song_proposal, limit=50)
+        song_queries = self.spotify_client.search(q=song_proposal, type="track", limit=30)
         song_queries = song_queries.get("tracks", {}).get("items", [])
 
         # Naively match the song and artist to the first result
