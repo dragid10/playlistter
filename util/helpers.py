@@ -5,10 +5,9 @@ import pytz
 from loguru import logger
 from tweepy.models import Status
 
-# from api.playlistter_bot import PlaylistterBot
-
 # Temporary In-memory map to keep track of user replies
 # Will get cleared each new day
+
 USER_REPLIES = {}
 EASTERN_TZ = pytz.timezone('US/Eastern')
 
