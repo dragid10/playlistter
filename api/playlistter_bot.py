@@ -215,9 +215,10 @@ class PlaylistterBot:
                     if added_to_playlist:
                         logger.debug(f"Added song {song_uri} to playlist")
                         helpers.USER_REPLIES[reply.author_id] = song_proposal
-                        self.playlistter.twitter_client.update_status(status="I've added your song to the playlist!",
-                                                                      in_reply_to_status_id=reply.id,
-                                                                      auto_populate_reply_metadata=True)
+                        self.playlistter.twitter_client.update_status(
+                            status="I've added your song to the playlist! Find it here: https://open.spotify.com/playlist/7sMcyP8zJ8Fr1WkZ27XL7Y?si=5164424d3fc04102",
+                            in_reply_to_status_id=reply.id,
+                            auto_populate_reply_metadata=True)
                     else:  # Tell user that the song is already in the playlist
                         self.playlistter.twitter_client.update_status(
                             status="This song is already in the playlist! Feel free to choose a different one 🙂",
