@@ -16,8 +16,7 @@ SPOTIFY_CLIENT_SECRET = config("spotify_client_secret")
 SPOTIFY_PLAYLIST_ID = config("spotify_playlist_id")
 SPOTIFY_DC = config("spotify_dc")
 SPOTIFY_KEY = config("spotify_key")
-SPOTIFY_PERMA_TOKEN = spotify_token.start_session(
-    dc=SPOTIFY_DC, key=SPOTIFY_KEY)[0]
+SPOTIFY_PERMA_TOKEN = spotify_token.start_session(dc=SPOTIFY_DC, key=SPOTIFY_KEY)[0]
 
 # Mongo Configs
 MONGO_HOST = config("mongo_host")

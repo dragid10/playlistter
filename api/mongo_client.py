@@ -4,13 +4,16 @@ import urllib.parse
 from loguru import logger
 from pymongo import MongoClient
 
-logger.add(sys.stderr, format="<lvl> {level} - {message}</lvl>",
-           filter=f"{__name__}",
-           level="DEBUG",
-           colorize=True,
-           backtrace=True,
-           diagnose=True,
-           catch=True)
+logger.add(
+    sys.stderr,
+    format="<lvl> {level} - {message}</lvl>",
+    filter=f"{__name__}",
+    level="DEBUG",
+    colorize=True,
+    backtrace=True,
+    diagnose=True,
+    catch=True,
+)
 
 
 def login(username: str, password: str, hostname: str) -> MongoClient:
