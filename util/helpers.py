@@ -35,5 +35,6 @@ def populate_user_replies_map(replies: List[Status]):
     for reply in replies:
         if reply.author.id_str not in USER_REPLIES:
             song = reply.text.strip()
-            logger.debug(f"Previous song suggestion by {reply.author.id_str}: {reply.text}")
+            logger.debug(
+                f"Previous song suggestion by {reply.author.id_str}: {reply.text}")
             USER_REPLIES[reply.author.id_str] = song

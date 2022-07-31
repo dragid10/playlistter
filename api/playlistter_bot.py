@@ -41,7 +41,8 @@ class PlaylistterBot:
         logger.debug("logging in to twitter")
         self.twitter_client = self.twitter_login()
         self.last_tweet = self.get_last_tweet()
-        logger.debug(f"Logged in twitter user: {self.get_logged_in_twitter_user().screen_name}")
+        logger.debug(
+            f"Logged in twitter user: {self.get_logged_in_twitter_user().screen_name}")
         logger.info("Twitter login successful")
 
         # ------ SPOTIFY Vars ------
@@ -53,18 +54,23 @@ class PlaylistterBot:
 
         logger.debug("Logging in to spotify")
         self.spotify_client = self.spotify_login()
-        logger.debug(f"Logged in spotify user: {self.get_logged_in_spotify_user()['id']}")
+        logger.debug(
+            f"Logged in spotify user: {self.get_logged_in_spotify_user()['id']}")
         logger.info("Spotify login successful")
 
-        self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
+        self.streaming_client = self.TwitterReplyWatcher(
+            self, last_tweet=self.last_tweet[0])
 
     def twitter_login(self) -> tweepy.API:
-        auth: tweepy.OAuth1UserHandler = tweepy.OAuthHandler(consumer_key=self.twitter_api_key, consumer_secret=self.twitter_api_secret)
-        auth.set_access_token(key=self.twitter_token, secret=self.twitter_token_secret)
+        auth: tweepy.OAuth1UserHandler = tweepy.OAuthHandler(
+            consumer_key=self.twitter_api_key, consumer_secret=self.twitter_api_secret)
+        auth.set_access_token(key=self.twitter_token,
+                              secret=self.twitter_token_secret)
         return tweepy.API(auth)
 
     def spotify_login(self) -> Spotify:
-        sp_client = Spotify(auth=self.spotify_perma_token, requests_timeout=15, retries=5, status_retries=7, backoff_factor=0.3)
+        sp_client = Spotify(auth=self.spotify_perma_token, requests_timeout=15,
+                            retries=5, status_retries=7, backoff_factor=0.3)
         return sp_client
 
     # TWITTER METHODS
@@ -112,11 +118,13 @@ class PlaylistterBot:
         # technically `in_reply_to_status_id` is not listed in the documentation officially, but it exists
         # https://developer.twitter.com/en/blog/product-news/2022/twitter-api-v2-filtered-stream
         # https://docs.tweepy.org/en/stable/streamingclient.html#streamingclient
-        self.streaming_client.add_rules(tweepy.StreamRule(f"in_reply_to_status_id:{last_tweet.id_str}"))
+        self.streaming_client.add_rules(tweepy.StreamRule(
+            f"in_reply_to_status_id:{last_tweet.id_str}"))
 
         logger.debug("Starting stream")
         # Ensure we get these fields in the response and start the stream
-        self.streaming_client.filter(tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
+        self.streaming_client.filter(
+            tweet_fields="id,author_id,conversation_id,created_at,in_reply_to_user_id")
 
     def kill_stream(self):
         logger.debug("Killing stream")
@@ -130,11 +138,13 @@ class PlaylistterBot:
     def add_song_to_playlist(self, song: str) -> bool:
         # Get playlist object
         playlist = self.spotify_client.playlist(self.spotify_playlist_id)
-        playlist_songs = [uri["track"]["uri"] for uri in playlist["tracks"]["items"]]
+        playlist_songs = [uri["track"]["uri"]
+                          for uri in playlist["tracks"]["items"]]
 
         # Only add song if it is not already in the playlist
         if song not in playlist_songs:
-            ret = self.spotify_client.playlist_add_items(playlist_id=self.spotify_playlist_id, items=[song])
+            ret = self.spotify_client.playlist_add_items(
+                playlist_id=self.spotify_playlist_id, items=[song])
             logger.debug(f"Added new song to playlist")
         else:
             logger.debug(f"Song is already found in playlist")
@@ -146,7 +156,8 @@ class PlaylistterBot:
         song_proposal = comment.split("-")
 
         # Lookup song with Spotify API and get the Spotify ID
-        song_queries = self.spotify_client.search(q=song_proposal, type="track", limit=30)
+        song_queries = self.spotify_client.search(
+            q=song_proposal, type="track", limit=30)
         song_queries = song_queries.get("tracks", {}).get("items", [])
 
         # Naively match the song and artist to the first result
@@ -168,15 +179,18 @@ class PlaylistterBot:
                     song_details = track
                     break
 
-        logger.debug(f"Found song: {song_details['name']} - {song_details['artists'][0]['name']}")
+        logger.debug(
+            f"Found song: {song_details['name']} - {song_details['artists'][0]['name']}")
         return song_details["uri"]
 
     class TwitterReplyWatcher(tweepy.StreamingClient):
         def __init__(self, playlistter_bot, last_tweet: Status):
             self.playlistter = playlistter_bot
             self.last_tweet: Status = last_tweet
-            self.is_direct_reply = self.playlistter.is_direct_reply  # steal func from parent class
-            super().__init__(playlistter_bot.twitter_bearer_token, wait_on_rate_limit=True, max_retries=25)
+            # steal func from parent class
+            self.is_direct_reply = self.playlistter.is_direct_reply
+            super().__init__(playlistter_bot.twitter_bearer_token,
+                             wait_on_rate_limit=True, max_retries=25)
 
         def on_connect(self):
             logger.debug("Successfully connected to Twitter Stream")
@@ -189,17 +203,21 @@ class PlaylistterBot:
         def on_tweet(self, reply: Tweet):
             logger.debug(f"Received reply from Twitter: {reply}")
 
-            if self.is_direct_reply(reply):  # Only reply to direct replies (aka have a single `@` in the tweet)
+            # Only reply to direct replies (aka have a single `@` in the tweet)
+            if self.is_direct_reply(reply):
                 logger.debug(f"Direct reply detected")
                 # Ensure this user hasn't already suggested a song for today
                 if reply.author_id not in helpers.USER_REPLIES:
-                    logger.debug(f"Found new reply to root tweet {self.last_tweet.id}: {reply.text}")
-                    song_proposal = reply.text.replace(f"@{self.last_tweet.author.screen_name}", "").strip()
+                    logger.debug(
+                        f"Found new reply to root tweet {self.last_tweet.id}: {reply.text}")
+                    song_proposal = reply.text.replace(
+                        f"@{self.last_tweet.author.screen_name}", "").strip()
 
                     # lookup and add song to playlist
                     logger.debug(f"Looking up song: {song_proposal}")
                     song_uri = self.playlistter.lookup_songs(song_proposal)
-                    added_to_playlist = self.playlistter.add_song_to_playlist(song_uri)
+                    added_to_playlist = self.playlistter.add_song_to_playlist(
+                        song_uri)
 
                     # Verify song was added to playlist and reply to user if it wasn't
                     if added_to_playlist:
@@ -214,9 +232,11 @@ class PlaylistterBot:
                             status="This song is already in the playlist! Feel free to choose a different one 🙂",
                             in_reply_to_status_id=reply.id,
                             auto_populate_reply_metadata=True)
-                        logger.debug(f"Song {song_proposal} is already in the playlist, informed requesting user")
+                        logger.debug(
+                            f"Song {song_proposal} is already in the playlist, informed requesting user")
                 else:  # User has already suggested a song for today
-                    logger.debug(f"Found duplicate reply to root tweet {self.last_tweet.id_str}: {reply.text}")
+                    logger.debug(
+                        f"Found duplicate reply to root tweet {self.last_tweet.id_str}: {reply.text}")
                     self.playlistter.twitter_client.update_status(
                         status="Sorry but you've already submitted a song for today! Try again tomorrow",
                         in_reply_to_status_id=reply.id,
