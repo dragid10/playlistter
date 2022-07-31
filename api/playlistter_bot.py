@@ -37,7 +37,7 @@ class PlaylistterBot:
         self.twitter_bearer_token = twitter_bearer_token
         self.twitter_client = self.twitter_login()
         self.last_tweet = self.get_last_tweet()
-        # self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
+        logger.debug(f"Logged in twitter user: {self.get_logged_in_twitter_user().screen_name}")
         logger.info("Twitter login successful")
 
         # Spotify
@@ -45,6 +45,7 @@ class PlaylistterBot:
         self.spotify_client_secret = spotify_client_secret
         self.spotify_playlist_id = spotify_playlist_id
         self.spotify_client = self.spotify_login()
+        logger.debug(f"Logged in spotify user: {self.get_logged_in_spotify_user()['id']}")
         logger.info("Spotify login successful")
 
         self.streaming_client = self.TwitterReplyWatcher(self, last_tweet=self.last_tweet[0])
@@ -117,6 +118,9 @@ class PlaylistterBot:
         self.streaming_client.disconnect()
 
     # SPOTIFY METHODS
+    def get_logged_in_spotify_user(self):
+        return self.spotify_client.me()
+
     def add_song_to_playlist(self, song: str) -> bool:
         playlist = self.spotify_client.playlist(self.spotify_playlist_id)
         playlist_songs = [uri["track"]["uri"] for uri in playlist["tracks"]["items"]]
