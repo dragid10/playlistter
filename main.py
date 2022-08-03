@@ -92,4 +92,8 @@ if __name__ == '__main__':
     # Add callback to scheduler to kill twitter stream on new runs
     scheduler.add_listener(scheduler_callback, EVENT_JOB_SUBMITTED | EVENT_JOB_ADDED)
 
-    scheduler.start()
+    try:
+        scheduler.start()
+    except Exception:
+        logger.exception(f"Exiting scheduler with exception!")
+        sys.exit(1)

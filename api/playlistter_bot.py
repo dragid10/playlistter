@@ -1,7 +1,6 @@
 import sys
 from typing import List
 
-import sys
 import tweepy
 from loguru import logger
 from spotipy import Spotify
@@ -227,7 +226,7 @@ class PlaylistterBot:
 
         def on_disconnect(self):
             logger.debug("Forced disconnection from Twitter Stream. Killing bot")
-            sys.exit(-1)
+            sys.exit(1)
 
         def on_closed(self, response):
             logger.debug(f"Stream closed by Twitter with response {response}")
